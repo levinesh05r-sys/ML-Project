@@ -1,0 +1,49 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+
+np.random.seed(2)
+
+data_size=400
+
+study_hours=np.random.randint(1,11,data_size)
+sleep_hours=np.random.randint(4,10,data_size)
+revisions=np.random.randint(0,8,data_size)
+
+score=study_hours*3+sleep_hours*1.5+revisions*4
+
+labels=[]
+for s in score:
+    if s>=55:
+        labels.append("Good")
+    elif s>=35:
+        labels.append("Average")
+    else:
+        labels.append("Poor")
+
+data=pd.DataFrame({
+    "StudyHours":study_hours,
+    "SleepHours":sleep_hours,
+    "Revisions":revisions,
+    "Performance":labels
+})
+
+X=data[["StudyHours","SleepHours","Revisions"]]
+y=data["Performance"]
+
+X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.2)
+
+model=RandomForestClassifier()
+model.fit(X_train,y_train)
+
+print("Student Performance Prediction System")
+
+sh=float(input("Enter study hours: "))
+sl=float(input("Enter sleep hours: "))
+rv=float(input("Enter number of revisions: "))
+
+input_df=pd.DataFrame([[sh,sl,rv]],columns=["StudyHours","SleepHours","Revisions"])
+prediction=model.predict(input_df)
+
+print("Predicted Performance:",prediction[0])
