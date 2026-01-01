@@ -1,0 +1,107 @@
+import tensorflow as tf
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+from tensorflow.keras.models import Sequential,load_model
+from tensorflow.keras.layers import Conv2D,MaxPooling2D,Flatten,Dense,Dropout
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.utils import to_categorical
+from sklearn.metrics import confusion_matrix,classification_report
+import os
+
+(x_train,y_train),(x_test,y_test)=mnist.load_data()
+
+print("Training samples:",x_train.shape[0])
+print("Testing samples:",x_test.shape[0])
+
+unique,counts=np.unique(y_train,return_counts=True)
+print("Class distribution")
+for i in range(len(unique)):
+    print(unique[i],counts[i])
+
+for i in range(5):
+    plt.imshow(x_train[i],cmap="gray")
+    plt.title("Label:"+str(y_train[i]))
+    plt.savefig("sample_"+str(i)+".png")
+    plt.close()
+
+x_train=x_train.reshape(-1,28,28,1).astype("float32")/255
+x_test=x_test.reshape(-1,28,28,1).astype("float32")/255
+
+y_train_cat=to_categorical(y_train,10)
+y_test_cat=to_categorical(y_test,10)
+
+model_path="digit_model.h5"
+
+if os.path.exists(model_path):
+    model=load_model(model_path)
+else:
+    model=Sequential()
+    model.add(Conv2D(32,(3,3),activation="relu",input_shape=(28,28,1)))
+    model.add(MaxPooling2D((2,2)))
+    model.add(Conv2D(64,(3,3),activation="relu"))
+    model.add(MaxPooling2D((2,2)))
+    model.add(Conv2D(64,(3,3),activation="relu"))
+    model.add(Flatten())
+    model.add(Dense(128,activation="relu"))
+    model.add(Dropout(0.3))
+    model.add(Dense(10,activation="softmax"))
+    model.compile(optimizer="adam",loss="categorical_crossentropy",metrics=["accuracy"])
+    history=model.fit(x_train,y_train_cat,epochs=6,batch_size=128,validation_data=(x_test,y_test_cat))
+    model.save(model_path)
+    plt.plot(history.history["accuracy"])
+    plt.plot(history.history["val_accuracy"])
+    plt.savefig("accuracy_plot.png")
+    plt.close()
+
+loss,acc=model.evaluate(x_test,y_test_cat)
+print("Test Accuracy:",acc*100)
+
+preds=model.predict(x_test)
+pred_labels=np.argmax(preds,axis=1)
+
+cm=confusion_matrix(y_test,pred_labels)
+print("Confusion Matrix")
+print(cm)
+
+report=classification_report(y_test,pred_labels)
+print("Classification Report")
+print(report)
+
+while True:
+    print("1 Test using image file")
+    print("2 Test using webcam")
+    print("3 Exit")
+    ch=input("Enter choice: ")
+
+    if ch=="1":
+        path=input("Enter image path: ")
+        img=cv2.imread(path,cv2.IMREAD_GRAYSCALE)
+        img=cv2.resize(img,(28,28))
+        img=255-img
+        img=img.astype("float32")/255
+        img=img.reshape(1,28,28,1)
+        pred=model.predict(img)
+        digit=np.argmax(pred)
+        print("Predicted Digit:",digit)
+
+    elif ch=="2":
+        cap=cv2.VideoCapture(0)
+        while True:
+            ret,frame=cap.read()
+            gray=cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+            roi=cv2.resize(gray,(28,28))
+            roi=255-roi
+            roi=roi.astype("float32")/255
+            roi=roi.reshape(1,28,28,1)
+            pred=model.predict(roi)
+            digit=np.argmax(pred)
+            cv2.putText(frame,str(digit),(50,50),cv2.FONT_HERSHEY_SIMPLEX,2,(0,255,0),3)
+            cv2.imshow("Digit Detector",frame)
+            if cv2.waitKey(1)&0xFF==27:
+                break
+        cap.release()
+        cv2.destroyAllWindows()
+
+    elif ch=="3":
+        break
